@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 2.8)
+project( PupilDetecor )
+find_package( OpenCV )
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+add_executable( PupilDetector main.cpp )
+target_link_libraries( PupilDetector ${OpenCV_LIBS} )
