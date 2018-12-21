@@ -1,4 +1,6 @@
 build*/
-*Cache*
+*.txt
+!CMakeLists.txt
 *xcodeproj
-CMake*/
+/.idea
+.idea
