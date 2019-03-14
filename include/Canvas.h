@@ -6,8 +6,8 @@
 #include "opencv2/highgui.hpp"
 #include <iostream>
 
-#ifndef PUPILDETECOR_CANVAS_H
-#define PUPILDETECOR_CANVAS_H
+#ifndef CANVAS_H
+#define CANVAS_H
 
 using namespace cv;
 using namespace std;
@@ -39,4 +39,4 @@ public:
 };
 
 
-#endif //PUPILDETECOR_CANVAS_H
+#endif
