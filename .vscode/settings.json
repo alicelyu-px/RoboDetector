@@ -9,6 +9,12 @@
         "string_view": "cpp",
         "vector": "cpp",
         "iosfwd": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "__bit_reference": "cpp",
+        "initializer_list": "cpp",
+        "chrono": "cpp",
+        "bitset": "cpp",
+        "utility": "cpp",
+        "algorithm": "cpp"
     }
 }

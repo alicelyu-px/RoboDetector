@@ -7,6 +7,8 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <numeric>
+#include <cstdlib> 
 
 #ifndef CANVAS_H
 #include "Canvas.h"
@@ -38,10 +40,13 @@ void mergeImg(Mat & dst,Mat &src1,Mat &src2);
 void Dilation( int, void* );
 void Erosion( int, void* );
 void ero_dilate(Mat & src, int erosion_size, int dilation_dize);
-// void select(Mat img);
+bool comp(vector<Point> i, vector<Point> j);
+
+static Point2f mean_point(vector<Point> points);
 
 int main( int argc, char** argv ) {
    Mat image_gray, image_hsv;
+   Point2f zero(0.0f, 0.0f);
    CommandLineParser parser(argc, argv,"{help h||}{@image|1.jpg|}");
    string filename = parser.get<string>("@image");
    // VideoCapture cap(filename);
@@ -50,12 +55,12 @@ int main( int argc, char** argv ) {
       cout << "Couldn't open image " << filename << "\n";
       return 0;
    }
-   peek_val(image);
+   // peek_val(image);
    // namedWindow("peek", WINDOW_NORMAL );
    cvtColor(image, image_hsv, COLOR_RGB2HSV);
    blur(image_hsv, image_hsv, Size(3,3) );
    Mat light(image.rows, image.cols, CV_8UC1, Scalar(0));
-   Mat red(image.rows, image.cols, CV_8UC1, Scalar(0));
+
    Mat dark(image.rows, image.cols, CV_8UC1, Scalar(0));
    int cols = image.cols;
    int rows = image.rows;
@@ -67,30 +72,85 @@ int main( int argc, char** argv ) {
          int S=hsv.val[1];
          int V=hsv.val[2];
          // low satuation & low brightness
-         if (S < 0.3 * 255 && V < 0.3 * 255 && i > rows*0.3)
+         // S < 0.3 * 255 && 
+         if (V < 0.3 * 255 && i > rows*0.4) 
             dark.at<uchar>(i, j) = 255;
-         if (V > 0.9*255 && S < 0.1 * 255 && i > rows*0.3)
+         
+         if (V > 0.9*255 && S < 0.1 * 255 && i > (int)(rows*0.4)) {
             light.at<uchar>(i, j) = 255;
+         }
       }
    } 
+   
    erosion_size=1;
    dilation_size=8;
-   ero_dilate(light, 1, 8);
-   ero_dilate(dark, 1, 1);
+   ero_dilate(light, 1, 6);
+   ero_dilate(dark, 4, 8);
+   // imshow("dark", dark);
+   // waitKey();
    // namedWindow("Light after", WINDOW_AUTOSIZE );
    namedWindow("Dark after", WINDOW_AUTOSIZE );
    // moveWindow( "Dark after", cols, 0 );
    vector<vector<Point> > contours;
-   findContours(dark, contours, RETR_LIST, CHAIN_APPROX_NONE);
-   for(int i = 0; i < contours.size(); i++) {
-      cout << "len_ctr= " << contours[i].size() << endl;
-      if (contours[i].size() < 2000) {
-         drawContours(dark, contours, i, Scalar(0), -1);
+   
+   findContours(light, contours, RETR_LIST, CHAIN_APPROX_NONE);
+   // findContours(dark, contours, RETR_LIST, CHAIN_APPROX_NONE);
+
+   RotatedRect box;
+   sort(contours.begin(), contours.end(), comp);
+   
+   vector<Point> light_batch;
+   for(int i = 0; i < MIN(contours.size(), 6); i++) {
+      if (contours[i].size() < 20) {
+         drawContours(dark, contours, i, Scalar(55), -1);
+      } else {
+         box = fitEllipse(contours[i]);
+         ellipse(image, box, Scalar(222), 5);
+         for (int j = 0; j < contours[i].size(); j++) {
+            // To prune reflections on the floor
+            Point p = contours[i][j];
+            // cout << " what's p.x " << p.x << "p.y=" << p.y << endl;
+            if ((int)dark.at<uchar>(p.y, p.x) == 255)
+               light_batch.push_back(contours[i][j]);
+         } 
+         // light_batch.insert(light_batch.end(), contours[i].begin(), contours[i].end());
       }
    }
-   imshow("Dark after", dark);
+   Point2f mean = mean_point(light_batch);
+   Rect bound_light = boundingRect(light_batch);
+   int w = (int)bound_light.width;
+   int h = (int)bound_light.height;
+   for (int i = 0; i<image.rows;i++) {
+      for (int j = 0; j<image.cols; j++) {
+         if (dark.at<uchar>(i, j)==255 && abs(i-mean.y) < w && abs(j-mean.x) < w)
+            light_batch.push_back(Point(j, i));
+      }
+   }
+   vector<vector<Point>> tmp;
+   tmp.push_back(light_batch);
+   // drawContours(image, tmp, -1, Scalar(222), 3);
+   Rect bound_cart = boundingRect(light_batch);
+      // Size infSize((int)1.6*bound_light.height, (int)1.6*bound_light.width);
+      // bound_light += infSize;
+   rectangle(image, bound_cart, Scalar(99), 3);
+   //+Point(0, -(int)bound_cart.height*0.1)
    
-   // // peak emosion/dilation
+   // for(int i = 0; i < contours.size(); i++) {
+   //    cout << "len_ctr= " << contours[i].size() << endl;
+   //    if (contours[i].size() < 20) {
+   //       drawContours(light, contours, i, Scalar(0), -1);
+   //    } else {
+   //       box = fitEllipse(contours[i]);
+   //       cout << "width= " << box.size.width << "height= " << box.size.height << endl;
+   //       ellipse(light, box, Scalar(125), 5);
+   //       // if( MAX(box.size.width, box.size.height) > MIN(box.size.width, box.size.height)*1.4 ||   
+   //       //    MIN(box.size.width, box.size.height) <= 0.1*rows)
+   //       //    drawContours(dark, contours, i, Scalar(55), 5);
+   //    }
+   // }
+   imshow("Dark after", image);
+   
+// // peak emosion/dilation
    // namedWindow( "Erosion Demo", WINDOW_AUTOSIZE );
    // namedWindow( "Dilation Demo", WINDOW_AUTOSIZE );
    // moveWindow( "Dilation Demo", src.cols, 0 );
@@ -122,7 +182,7 @@ int main( int argc, char** argv ) {
    // imshow("dark", red);
    waitKey();
    // setMouseCallback("peek", onMouse, 0);
-//   imshow("peek", image_hsv);
+
    // src = image_hsv.clone();
    // setMouseCallback("peek", onMouse, 0);
    // imshow("peek", channels[2]);
@@ -136,6 +196,17 @@ int main( int argc, char** argv ) {
    // processImage(0, 0);
    return 0;
 }
+
+static Point2f mean_point(vector<Point> points) {
+   Point zero(0, 0);
+   Point sum = std::accumulate(points.begin(), points.end(), zero);
+   return Point((int)(sum.x / points.size()), (int)(sum.y / points.size()));
+}
+
+bool comp(vector<Point> i, vector<Point> j) {
+    return i.size() > j.size();
+}
+
 void ero_dilate(Mat & src, int erosion_size, int dilation_dize) {
    Mat e_element = getStructuringElement( MORPH_ELLIPSE,
                        Size( 2*erosion_size + 1, 2*erosion_size+1 ),
